@@ -1,0 +1,203 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPER_ADMIN
+  ORG_ADMIN
+  BUILDING_MANAGER
+  ANALYST
+  VIEWER
+}
+
+enum MeterType {
+  MAIN_GRID
+  HVAC
+  LIGHTING
+  EQUIPMENT
+  SOLAR_SOLAR
+  EV_CHARGER
+}
+
+enum AlertSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+enum AlertScope {
+  ORG
+  BUILDING
+  FLOOR
+  DEPARTMENT
+  METER
+}
+
+enum AlertStatus {
+  NEW
+  ACKNOWLEDGED
+  RESOLVED
+}
+
+model Organization {
+  id          String       @id @default(uuid())
+  name        String
+  slug        String       @unique
+  industry    String?
+  ratePerKwh  Float        @default(8.5)
+  currency    String       @default("BDT")
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  users       User[]
+  buildings   Building[]
+  alertRules  AlertRule[]
+
+  @@map("organizations")
+}
+
+model User {
+  id           String        @id @default(uuid())
+  orgId        String
+  email        String        @unique
+  passwordHash String
+  name         String
+  role         Role          @default(VIEWER)
+  avatar       String?
+  isActive     Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  organization Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  alertEvents  AlertEvent[]
+
+  @@index([orgId])
+  @@map("users")
+}
+
+model Building {
+  id          String       @id @default(uuid())
+  orgId       String
+  name        String
+  address     String?
+  latitude    Float?
+  longitude   Float?
+  totalArea   Float?       // in sqft / sqm
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  floors       Floor[]
+
+  @@index([orgId])
+  @@map("buildings")
+}
+
+model Floor {
+  id          String       @id @default(uuid())
+  buildingId  String
+  name        String
+  level       Int
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  building    Building     @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  departments Department[]
+
+  @@index([buildingId])
+  @@map("floors")
+}
+
+model Department {
+  id          String       @id @default(uuid())
+  floorId     String
+  name        String
+  type        String?      // e.g. OFFICE, LAB, SERVER_ROOM, COMMON
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  floor       Floor        @relation(fields: [floorId], references: [id], onDelete: Cascade)
+  meters      Meter[]
+
+  @@index([floorId])
+  @@map("departments")
+}
+
+model Meter {
+  id           String       @id @default(uuid())
+  departmentId String
+  serialNumber String       @unique
+  name         String
+  meterType    MeterType    @default(MAIN_GRID)
+  unit         String       @default("kWh")
+  isActive     Boolean      @default(true)
+  installedAt  DateTime     @default(now())
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  department   Department   @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  readings     Reading[]
+
+  @@index([departmentId])
+  @@map("meters")
+}
+
+model Reading {
+  id        String   @id @default(uuid())
+  meterId   String
+  timestamp DateTime
+  value     Float    // kWh consumed in this period
+  cost      Float    // calculated cost (value * rate)
+  carbonKg  Float    // calculated carbon emission (value * factor)
+
+  meter     Meter    @relation(fields: [meterId], references: [id], onDelete: Cascade)
+
+  @@index([meterId, timestamp])
+  @@index([timestamp])
+  @@map("readings")
+}
+
+model AlertRule {
+  id         String       @id @default(uuid())
+  orgId      String
+  name       String
+  scope      AlertScope   @default(ORG)
+  scopeId    String?      // id of building/floor/dept/meter if scoped
+  metric     String       @default("CONSUMPTION") // CONSUMPTION, COST, SPIKE
+  condition  String       @default("GT")          // GT, LT, ANOMALY_ZSCORE
+  threshold  Float
+  isActive   Boolean      @default(true)
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  events       AlertEvent[]
+
+  @@index([orgId])
+  @@map("alert_rules")
+}
+
+model AlertEvent {
+  id          String        @id @default(uuid())
+  ruleId      String
+  userId      String?       // acknowledged by
+  severity    AlertSeverity @default(WARNING)
+  status      AlertStatus   @default(NEW)
+  title       String
+  message     String
+  actualValue Float
+  triggeredAt DateTime      @default(now())
+  resolvedAt  DateTime?
+
+  rule        AlertRule     @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  user        User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([ruleId])
+  @@index([triggeredAt])
+  @@map("alert_events")
+}
