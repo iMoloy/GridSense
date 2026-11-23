@@ -1,0 +1,18 @@
+{
+  "name": "gridsense-root",
+  "version": "1.0.0",
+  "private": true,
+  "description": "GridSense - Smart Building Energy Intelligence Platform",
+  "scripts": {
+    "dev": "concurrently -n \"CLIENT,SERVER\" -c \"cyan,green\" \"pnpm --filter sense-client dev\" \"pnpm --filter sense-server dev\"",
+    "dev:client": "pnpm --filter sense-client dev",
+    "dev:server": "pnpm --filter sense-server dev",
+    "build:client": "pnpm --filter sense-client build",
+    "build:server": "pnpm --filter sense-server build",
+    "build": "pnpm build:server && pnpm build:client",
+    "type-check": "pnpm --filter sense-server type-check && pnpm --filter sense-client type-check"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
