@@ -65,6 +65,31 @@ export interface Meter {
   lastReading?: number;
 }
 
+export interface MeterWithReading extends Meter {
+  currentLoadKw: number;
+  dailyConsumptionKwh: number;
+  status: 'ONLINE' | 'OFFLINE' | 'SPIKE_WARNING';
+}
+
+export interface DepartmentWithMeters extends Department {
+  meters: MeterWithReading[];
+  totalLoadKw: number;
+}
+
+export interface FloorWithDepartments extends Floor {
+  departments: DepartmentWithMeters[];
+  totalLoadKw: number;
+}
+
+export interface BuildingDetail extends Building {
+  floors: FloorWithDepartments[];
+  dailyTotalKwh: number;
+  monthlyTotalKwh: number;
+  peakDemandKw: number;
+  carbonEmissionKg: number;
+  energyScore: number;
+}
+
 export interface Reading {
   id: string;
   meterId: string;

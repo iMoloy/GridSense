@@ -1,4 +1,9 @@
-import type { DashboardOverviewData, Building, AlertEventItem } from '@/types';
+import type {
+  DashboardOverviewData,
+  Building,
+  BuildingDetail,
+  AlertEventItem,
+} from '@/types';
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
@@ -66,4 +71,13 @@ export async function getRecentAlerts(): Promise<{
   error: string | null;
 }> {
   return fetchFromApi<AlertEventItem[]>('/alerts/events?limit=10');
+}
+
+/**
+ * Fetch building detail with full hierarchy (floors, departments, meters)
+ */
+export async function getBuildingById(
+  id: string
+): Promise<{ data: BuildingDetail | null; error: string | null }> {
+  return fetchFromApi<BuildingDetail>(`/buildings/${encodeURIComponent(id)}`);
 }
