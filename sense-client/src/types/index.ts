@@ -15,6 +15,21 @@ export type MeterType =
 
 export type AlertSeverity = 'INFO' | 'WARNING' | 'CRITICAL';
 export type AlertStatus = 'NEW' | 'ACKNOWLEDGED' | 'RESOLVED';
+export type AlertScope = 'ORG' | 'BUILDING' | 'FLOOR' | 'DEPT' | 'METER';
+
+export interface AlertRuleItem {
+  id: string;
+  orgId: string;
+  name: string;
+  scope: AlertScope;
+  scopeTargetName?: string;
+  metric: string;
+  condition: string;
+  threshold: number;
+  unit: string;
+  isActive: boolean;
+  createdAt: string;
+}
 
 export interface Organization {
   id: string;

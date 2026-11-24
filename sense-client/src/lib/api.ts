@@ -4,6 +4,7 @@ import type {
   BuildingDetail,
   AlertEventItem,
   AnalyticsStudioData,
+  AlertRuleItem,
 } from '@/types';
 
 const API_BASE_URL =
@@ -93,4 +94,27 @@ export async function getAnalyticsStudio(
   return fetchFromApi<AnalyticsStudioData>(
     `/analytics/studio?timeframe=${encodeURIComponent(timeframe)}&metric=${encodeURIComponent(metric)}`
   );
+}
+
+/**
+ * Fetch all configured alert rules
+ */
+export async function getAlertRules(): Promise<{
+  data: AlertRuleItem[] | null;
+  error: string | null;
+}> {
+  return fetchFromApi<AlertRuleItem[]>('/alerts/rules');
+}
+
+/**
+ * Fetch historical and active alert events
+ */
+export async function getAllAlertEvents(
+  status?: string,
+  severity?: string
+): Promise<{ data: AlertEventItem[] | null; error: string | null }> {
+  const query = new URLSearchParams();
+  if (status && status !== 'ALL') query.set('status', status);
+  if (severity && severity !== 'ALL') query.set('severity', severity);
+  return fetchFromApi<AlertEventItem[]>(`/alerts/events?${query.toString()}`);
 }
