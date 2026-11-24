@@ -5,6 +5,9 @@ export const metadata: Metadata = {
   title: "GridSense — Smart Building Energy Intelligence Platform",
   description:
     "Enterprise-grade multi-tenant energy analytics, automated anomaly detection, and building hierarchy telemetry.",
+  icons: {
+    icon: "/favicon.svg",
+  },
 };
 
 export default function RootLayout({
