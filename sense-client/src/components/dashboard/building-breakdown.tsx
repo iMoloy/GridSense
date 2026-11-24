@@ -33,19 +33,20 @@ export function BuildingBreakdown({ buildings }: BuildingBreakdownProps) {
       <div className="mt-5 space-y-4">
         {buildings.map((item) => (
           <div key={item.buildingId} className="group">
-            <div className="flex items-center justify-between text-xs">
-              <div className="flex items-center gap-2">
-                <Building2 className="h-4 w-4 text-slate-400 transition-colors group-hover:text-emerald-400" />
-                <span className="font-medium text-slate-200">
+            <div className="flex items-center justify-between gap-2 text-xs">
+              <div className="flex min-w-0 flex-1 items-center gap-2 pr-1">
+                <Building2 className="h-4 w-4 shrink-0 text-slate-400 transition-colors group-hover:text-emerald-400" />
+                <span className="truncate font-medium text-slate-200">
                   {item.buildingName}
                 </span>
-                <span className="flex items-center gap-1 rounded bg-slate-800 px-1.5 py-0.5 text-[10px] text-slate-400">
-                  <Gauge className="h-3 w-3" />
-                  {item.activeMeters} meters
+                <span className="flex shrink-0 whitespace-nowrap items-center gap-1 rounded bg-slate-800 px-1.5 py-0.5 text-[10px] text-slate-400">
+                  <Gauge className="h-3 w-3 shrink-0" />
+                  <span>{item.activeMeters}</span>
+                  <span className="hidden xs:inline"> meters</span>
                 </span>
               </div>
 
-              <div className="flex items-center gap-3">
+              <div className="flex shrink-0 items-center gap-2 sm:gap-3">
                 <span className="font-mono font-medium text-slate-300">
                   {formatKwh(item.consumptionKwh)}
                 </span>

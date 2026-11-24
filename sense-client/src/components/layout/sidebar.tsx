@@ -108,18 +108,18 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
                     : 'text-slate-300 hover:bg-slate-900/80 hover:text-slate-100'
                 )}
               >
-                <div className="flex items-center gap-3">
+                <div className="flex min-w-0 flex-1 items-center gap-3">
                   <Icon
                     className={cn(
-                      'h-5 w-5 transition-colors',
+                      'h-5 w-5 shrink-0 transition-colors',
                       isActive ? 'text-emerald-400' : 'text-slate-400 group-hover:text-slate-200'
                     )}
                   />
-                  <span>{item.name}</span>
+                  <span className="truncate">{item.name}</span>
                 </div>
 
                 {item.badge ? (
-                  <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-400 ring-1 ring-emerald-500/30">
+                  <span className="shrink-0 whitespace-nowrap rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-400 ring-1 ring-emerald-500/30">
                     {item.badge}
                   </span>
                 ) : (

@@ -53,7 +53,7 @@ export function RecentAlertsFeed({ alerts }: RecentAlertsFeedProps) {
         </Link>
       </div>
       <p className="mt-0.5 text-xs text-slate-400">
-        Statistical Z-Score outliers ($|z| &gt; 2.5$) and configured threshold alerts
+        Statistical Z-Score outliers (|z| &gt; 2.5) and configured threshold alerts
       </p>
 
       {/* Alerts list */}
@@ -72,7 +72,7 @@ export function RecentAlertsFeed({ alerts }: RecentAlertsFeedProps) {
                 key={alert.id}
                 className="flex items-start justify-between gap-3 rounded-xl border border-slate-800/60 bg-slate-950/60 p-3.5 transition-colors hover:border-slate-700"
               >
-                <div className="flex items-start gap-3">
+                <div className="flex min-w-0 flex-1 items-start gap-3">
                   <div
                     className={cn(
                       'mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ring-1 ring-inset',
@@ -81,14 +81,14 @@ export function RecentAlertsFeed({ alerts }: RecentAlertsFeedProps) {
                   >
                     <Icon className="h-4 w-4" />
                   </div>
-                  <div>
+                  <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-xs font-semibold text-slate-200">
                         {alert.title}
                       </span>
                       <span
                         className={cn(
-                          'rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ring-1',
+                          'shrink-0 whitespace-nowrap rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ring-1',
                           badge.badgeClass
                         )}
                       >
@@ -97,7 +97,7 @@ export function RecentAlertsFeed({ alerts }: RecentAlertsFeedProps) {
                     </div>
                     <p className="mt-1 text-xs text-slate-400">{alert.message}</p>
                     {alert.locationName && (
-                      <p className="mt-1 text-[11px] font-medium text-slate-400">
+                      <p className="mt-1 truncate text-[11px] font-medium text-slate-400">
                         Location: {alert.locationName}
                       </p>
                     )}

@@ -38,9 +38,9 @@ export default function HomePage() {
           </div>
 
           <div className="relative mx-auto max-w-5xl px-4 text-center sm:px-6 lg:px-8">
-            <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-1 text-xs font-semibold text-emerald-300">
-              <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span>Smart Building Energy Intelligence &amp; Telemetry</span>
+            <div className="inline-flex max-w-full items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-[11px] font-semibold text-emerald-300 sm:px-3.5 sm:text-xs">
+              <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="truncate sm:whitespace-normal">Smart Building Energy Intelligence &amp; Telemetry</span>
             </div>
 
             <h1 className="mt-6 text-4xl font-extrabold tracking-tight text-slate-100 sm:text-6xl lg:text-7xl">

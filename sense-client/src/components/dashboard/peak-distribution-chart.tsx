@@ -85,26 +85,26 @@ export function PeakDistributionChart({ distribution }: PeakDistributionChartPro
 
       {/* Breakdown Legend */}
       <div className="mt-3 space-y-2 border-t border-slate-800/80 pt-3">
-        <div className="flex items-center justify-between text-xs">
-          <div className="flex items-center gap-2">
-            <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-amber-500/10 text-amber-400">
+        <div className="flex items-center justify-between gap-2 text-xs">
+          <div className="flex min-w-0 flex-1 items-center gap-2 pr-1">
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 text-amber-400">
               <Sun className="h-3.5 w-3.5" />
             </span>
-            <span className="text-slate-300">Peak Hours (Higher Tariff)</span>
+            <span className="truncate text-slate-300">Peak Hours (Higher Tariff)</span>
           </div>
-          <span className="font-mono font-semibold text-slate-200">
+          <span className="shrink-0 font-mono font-semibold text-slate-200">
             {formatKwh(distribution.peakKwh)}
           </span>
         </div>
 
-        <div className="flex items-center justify-between text-xs">
-          <div className="flex items-center gap-2">
-            <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-400">
+        <div className="flex items-center justify-between gap-2 text-xs">
+          <div className="flex min-w-0 flex-1 items-center gap-2 pr-1">
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-400">
               <Moon className="h-3.5 w-3.5" />
             </span>
-            <span className="text-slate-300">Off-Peak (Base Tariff)</span>
+            <span className="truncate text-slate-300">Off-Peak (Base Tariff)</span>
           </div>
-          <span className="font-mono font-semibold text-slate-200">
+          <span className="shrink-0 font-mono font-semibold text-slate-200">
             {formatKwh(distribution.offPeakKwh)}
           </span>
         </div>

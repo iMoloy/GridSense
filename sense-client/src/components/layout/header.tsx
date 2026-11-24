@@ -26,12 +26,12 @@ export function Header({ onToggleSidebar, orgName = 'Dhaka Smart Campus' }: Head
         </button>
 
         {/* Current Organization Pill */}
-        <div className="flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-900/60 px-3 py-1.5">
-          <Building2 className="h-4 w-4 text-emerald-400" />
-          <span className="text-xs font-semibold text-slate-200 sm:text-sm">
+        <div className="flex min-w-0 max-w-[190px] items-center gap-2 rounded-xl border border-slate-800 bg-slate-900/60 px-2.5 py-1.5 sm:max-w-xs sm:px-3">
+          <Building2 className="h-4 w-4 shrink-0 text-emerald-400" />
+          <span className="truncate text-xs font-semibold text-slate-200 sm:text-sm">
             {activeOrg}
           </span>
-          <span className="rounded bg-slate-800 px-1.5 py-0.5 text-[10px] font-medium text-slate-400">
+          <span className="hidden shrink-0 whitespace-nowrap rounded bg-slate-800 px-1.5 py-0.5 text-[10px] font-medium text-slate-400 sm:inline-block">
             Multi-Tenant
           </span>
         </div>

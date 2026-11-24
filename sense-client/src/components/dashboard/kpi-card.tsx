@@ -127,30 +127,30 @@ export function KpiCard({
       </div>
 
       {/* Subtitle / Trend Footer */}
-      <div className="mt-4 flex items-center justify-between text-xs text-slate-400">
+      <div className="mt-4 flex items-center justify-between gap-2 text-xs text-slate-400">
         {hasTrend ? (
           <div
             className={cn(
-              'flex items-center gap-1 font-medium',
+              'flex min-w-0 flex-1 items-center gap-1 font-medium',
               isGood ? 'text-emerald-400' : 'text-rose-400'
             )}
           >
             {isUp ? (
-              <TrendingUp className="h-3.5 w-3.5" />
+              <TrendingUp className="h-3.5 w-3.5 shrink-0" />
             ) : (
-              <TrendingDown className="h-3.5 w-3.5" />
+              <TrendingDown className="h-3.5 w-3.5 shrink-0" />
             )}
-            <span>
+            <span className="shrink-0">
               {isUp ? '+' : ''}
               {changePercent.toFixed(1)}%
             </span>
-            <span className="text-[11px] text-slate-400">vs prior period</span>
+            <span className="truncate text-[11px] text-slate-400">vs prior period</span>
           </div>
         ) : (
-          <span>{subtitle || 'Real-time telemetry'}</span>
+          <span className="truncate">{subtitle || 'Real-time telemetry'}</span>
         )}
 
-        <span className="rounded-full bg-slate-800/80 px-2 py-0.5 text-[10px] text-slate-400">
+        <span className="shrink-0 whitespace-nowrap rounded-full bg-slate-800/80 px-2 py-0.5 text-[10px] text-slate-400">
           Live
         </span>
       </div>
