@@ -158,3 +158,45 @@ export interface DashboardOverviewData {
   peakDistribution: PeakDistribution;
   recentAlerts: AlertEventItem[];
 }
+
+export interface HeatmapPoint {
+  day: string;
+  hour: number;
+  value: number;
+  intensity: 0 | 1 | 2 | 3 | 4;
+}
+
+export interface FacilityComparisonItem {
+  id: string;
+  name: string;
+  currentPeriodKwh: number;
+  previousPeriodKwh: number;
+  cost: number;
+  carbonKg: number;
+  changePercent: number;
+}
+
+export interface CostProjectionData {
+  actualToDateKwh: number;
+  actualToDateCost: number;
+  projectedMonthEndCost: number;
+  budgetLimitCost: number;
+  projectedVariancePercent: number;
+  peakTariffCost: number;
+  offPeakTariffCost: number;
+  potentialSavingsCost: number;
+}
+
+export interface AnalyticsStudioData {
+  organization: Organization;
+  timeframe: string;
+  metric: 'kwh' | 'cost' | 'carbon';
+  totalConsumptionKwh: number;
+  totalCost: number;
+  totalCarbonKg: number;
+  peakDemandKw: number;
+  heatmap: HeatmapPoint[];
+  facilityComparison: FacilityComparisonItem[];
+  projection: CostProjectionData;
+  timeSeries: TimeSeriesPoint[];
+}

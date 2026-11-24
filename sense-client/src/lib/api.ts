@@ -3,6 +3,7 @@ import type {
   Building,
   BuildingDetail,
   AlertEventItem,
+  AnalyticsStudioData,
 } from '@/types';
 
 const API_BASE_URL =
@@ -80,4 +81,16 @@ export async function getBuildingById(
   id: string
 ): Promise<{ data: BuildingDetail | null; error: string | null }> {
   return fetchFromApi<BuildingDetail>(`/buildings/${encodeURIComponent(id)}`);
+}
+
+/**
+ * Fetch Analytics Studio multi-facility comparison, heatmap, and cost projection
+ */
+export async function getAnalyticsStudio(
+  timeframe: string = '7d',
+  metric: string = 'kwh'
+): Promise<{ data: AnalyticsStudioData | null; error: string | null }> {
+  return fetchFromApi<AnalyticsStudioData>(
+    `/analytics/studio?timeframe=${encodeURIComponent(timeframe)}&metric=${encodeURIComponent(metric)}`
+  );
 }
