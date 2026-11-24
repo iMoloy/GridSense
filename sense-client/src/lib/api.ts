@@ -5,6 +5,7 @@ import type {
   AlertEventItem,
   AnalyticsStudioData,
   AlertRuleItem,
+  OrganizationHierarchy,
 } from '@/types';
 
 const API_BASE_URL =
@@ -117,4 +118,14 @@ export async function getAllAlertEvents(
   if (status && status !== 'ALL') query.set('status', status);
   if (severity && severity !== 'ALL') query.set('severity', severity);
   return fetchFromApi<AlertEventItem[]>(`/alerts/events?${query.toString()}`);
+}
+
+/**
+ * Fetch complete campus organization hierarchy (Org -> Buildings -> Floors -> Depts -> Meters)
+ */
+export async function getOrganizationHierarchy(): Promise<{
+  data: OrganizationHierarchy | null;
+  error: string | null;
+}> {
+  return fetchFromApi<OrganizationHierarchy>('/hierarchy');
 }

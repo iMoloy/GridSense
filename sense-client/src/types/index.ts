@@ -105,6 +105,21 @@ export interface BuildingDetail extends Building {
   energyScore: number;
 }
 
+export interface HierarchyBuilding extends Building {
+  floors: FloorWithDepartments[];
+  totalLoadKw: number;
+}
+
+export interface OrganizationHierarchy {
+  organization: Organization;
+  totalBuildings: number;
+  totalFloors: number;
+  totalDepartments: number;
+  totalMeters: number;
+  totalLoadKw: number;
+  buildings: HierarchyBuilding[];
+}
+
 export interface Reading {
   id: string;
   meterId: string;
