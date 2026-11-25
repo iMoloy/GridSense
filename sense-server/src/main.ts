@@ -9,8 +9,9 @@ async function bootstrap() {
 
   app.use(cookieParser());
 
+  const clientUrl = process.env.CLIENT_URL;
   app.enableCors({
-    origin: process.env.CLIENT_URL || 'http://localhost:3000',
+    origin: clientUrl ? clientUrl.split(',').map((u) => u.trim()) : true,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
@@ -40,7 +41,7 @@ async function bootstrap() {
   SwaggerModule.setup('api/docs', app, document);
 
   const port = process.env.PORT || 5000;
-  await app.listen(port);
+  await app.listen(port, '0.0.0.0');
   console.log(`⚡ GridSense API running on: http://localhost:${port}/api`);
   console.log(`📚 Swagger Docs available at: http://localhost:${port}/api/docs`);
 }
