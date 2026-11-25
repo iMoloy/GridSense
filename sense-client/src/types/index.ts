@@ -120,6 +120,55 @@ export interface OrganizationHierarchy {
   buildings: HierarchyBuilding[];
 }
 
+export type ReportType =
+  | 'MONTHLY_AUDIT'
+  | 'PEAK_TARIFF'
+  | 'CARBON_COMPLIANCE'
+  | 'DEPARTMENT_INVOICE';
+
+export type ReportFormat = 'PDF' | 'CSV' | 'JSON';
+
+export interface ReportItem {
+  id: string;
+  title: string;
+  type: ReportType;
+  period: string;
+  format: ReportFormat;
+  sizeKb: number;
+  generatedAt: string;
+  author: string;
+  status: 'READY' | 'COMPILING';
+  downloadUrl?: string;
+}
+
+export interface BuildingAllocationReportItem {
+  id: string;
+  buildingName: string;
+  consumptionKwh: number;
+  cost: number;
+  carbonKg: number;
+  sharePercent: number;
+  peakKw: number;
+  efficiencyRating: string;
+}
+
+export interface ExecutiveReportData {
+  reportId: string;
+  title: string;
+  type: ReportType;
+  periodLabel: string;
+  generatedAt: string;
+  organization: Organization;
+  preparedBy: string;
+  executiveSummary: string;
+  totalConsumptionKwh: number;
+  totalCost: number;
+  totalCarbonTons: number;
+  peakDemandKw: number;
+  savingsAchievedCost: number;
+  buildingAllocations: BuildingAllocationReportItem[];
+}
+
 export interface Reading {
   id: string;
   meterId: string;

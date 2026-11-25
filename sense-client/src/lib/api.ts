@@ -6,6 +6,8 @@ import type {
   AnalyticsStudioData,
   AlertRuleItem,
   OrganizationHierarchy,
+  ReportItem,
+  ExecutiveReportData,
 } from '@/types';
 
 const API_BASE_URL =
@@ -128,4 +130,29 @@ export async function getOrganizationHierarchy(): Promise<{
   error: string | null;
 }> {
   return fetchFromApi<OrganizationHierarchy>('/hierarchy');
+}
+
+/**
+ * Fetch historical generated report files list
+ */
+export async function getReportsArchive(): Promise<{
+  data: ReportItem[] | null;
+  error: string | null;
+}> {
+  return fetchFromApi<ReportItem[]>('/reports/archive');
+}
+
+/**
+ * Fetch compiled executive audit report preview data
+ */
+export async function getExecutiveReportPreview(
+  type: string = 'MONTHLY_AUDIT',
+  period: string = '2026-11'
+): Promise<{
+  data: ExecutiveReportData | null;
+  error: string | null;
+}> {
+  return fetchFromApi<ExecutiveReportData>(
+    `/reports/preview?type=${encodeURIComponent(type)}&period=${encodeURIComponent(period)}`
+  );
 }
