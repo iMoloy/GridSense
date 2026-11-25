@@ -169,6 +169,42 @@ export interface ExecutiveReportData {
   buildingAllocations: BuildingAllocationReportItem[];
 }
 
+export interface TeamUser {
+  id: string;
+  orgId: string;
+  name: string;
+  email: string;
+  role: Role;
+  avatar?: string;
+  status: 'ACTIVE' | 'INVITED' | 'SUSPENDED';
+  lastActiveAt: string;
+}
+
+export interface TariffConfig {
+  peakRatePerKwh: number;
+  offPeakRatePerKwh: number;
+  peakHoursStart: string;
+  peakHoursEnd: string;
+  currency: string;
+  carbonFactorKgPerKwh: number;
+}
+
+export interface TelemetryConfig {
+  zScoreThreshold: number;
+  rollupCadenceMinutes: number;
+  dbStatus: 'CONNECTED' | 'DISCONNECTED';
+  dbLatencyMs: number;
+  iotIngestionToken: string;
+  webhookUrl?: string;
+}
+
+export interface OrgSettingsData {
+  organization: Organization;
+  tariff: TariffConfig;
+  telemetry: TelemetryConfig;
+  team: TeamUser[];
+}
+
 export interface Reading {
   id: string;
   meterId: string;

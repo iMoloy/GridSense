@@ -8,6 +8,7 @@ import type {
   OrganizationHierarchy,
   ReportItem,
   ExecutiveReportData,
+  OrgSettingsData,
 } from '@/types';
 
 const API_BASE_URL =
@@ -155,4 +156,14 @@ export async function getExecutiveReportPreview(
   return fetchFromApi<ExecutiveReportData>(
     `/reports/preview?type=${encodeURIComponent(type)}&period=${encodeURIComponent(period)}`
   );
+}
+
+/**
+ * Fetch organization profile, tariff, telemetry configuration, and RBAC team
+ */
+export async function getOrgSettings(): Promise<{
+  data: OrgSettingsData | null;
+  error: string | null;
+}> {
+  return fetchFromApi<OrgSettingsData>('/settings');
 }
