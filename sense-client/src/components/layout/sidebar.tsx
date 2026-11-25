@@ -62,7 +62,7 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
       >
         {/* Brand Header */}
         <div className="flex h-14 items-center justify-between px-3">
-          <Logo href="/dashboard" size="md" />
+          <Logo href="/" size="md" />
         </div>
 
         {/* Live Status Pill */}

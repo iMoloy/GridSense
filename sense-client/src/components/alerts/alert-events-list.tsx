@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import type { AlertEventItem } from '@/types';
 import { cn, formatRelativeTime } from '@/lib/utils';
+import { updateAlertStatus } from '@/lib/api';
 
 interface AlertEventsListProps {
   initialEvents: AlertEventItem[];
@@ -22,20 +23,22 @@ export function AlertEventsList({ initialEvents }: AlertEventsListProps) {
   const [filterSeverity, setFilterSeverity] = useState<string>('ALL');
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
 
-  const handleAcknowledge = (id: string) => {
+  const handleAcknowledge = async (id: string) => {
     setEvents((prev) =>
       prev.map((e) =>
         e.id === id ? { ...e, status: 'ACKNOWLEDGED' as const } : e
       )
     );
+    await updateAlertStatus(id, 'ACKNOWLEDGED');
   };
 
-  const handleResolve = (id: string) => {
+  const handleResolve = async (id: string) => {
     setEvents((prev) =>
       prev.map((e) =>
         e.id === id ? { ...e, status: 'RESOLVED' as const } : e
       )
     );
+    await updateAlertStatus(id, 'RESOLVED');
   };
 
   const filteredEvents = events.filter((e) => {

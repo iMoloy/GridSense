@@ -1,8 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { Building2, Save, Check, Globe } from 'lucide-react';
+import { Building2, Save, Check, Globe, Loader2 } from 'lucide-react';
 import type { Organization } from '@/types';
+import { updateOrgProfile } from '@/lib/api';
 
 interface OrgProfileCardProps {
   initialOrg: Organization;
@@ -13,9 +14,13 @@ export function OrgProfileCard({ initialOrg }: OrgProfileCardProps) {
   const [industry, setIndustry] = useState(initialOrg.industry || 'Higher Education & Research');
   const [slug, setSlug] = useState(initialOrg.slug);
   const [isSaved, setIsSaved] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSaving(true);
+    await updateOrgProfile({ name, industry, slug });
+    setIsSaving(false);
     setIsSaved(true);
     setTimeout(() => setIsSaved(false), 2500);
   };

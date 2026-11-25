@@ -79,7 +79,7 @@ export function TelemetryApiCard({ initialConfig }: TelemetryApiCardProps) {
             <p className="mt-1 font-mono text-sm font-bold text-slate-100">
               Every 60 Minutes
             </p>
-            <p className="text-[10px] text-slate-400">Hourly $\to$ Daily $\to$ Monthly</p>
+            <p className="text-[10px] text-slate-400">Hourly → Daily → Monthly</p>
           </div>
         </div>
 

@@ -167,3 +167,59 @@ export async function getOrgSettings(): Promise<{
 }> {
   return fetchFromApi<OrgSettingsData>('/settings');
 }
+
+/**
+ * Update organization profile
+ */
+export async function updateOrgProfile(payload: {
+  name?: string;
+  industry?: string;
+  slug?: string;
+}): Promise<{ data: unknown; error: string | null }> {
+  return fetchFromApi('/settings/org', {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  });
+}
+
+/**
+ * Update tariff configuration
+ */
+export async function updateTariffSettings(payload: {
+  peakRatePerKwh?: number;
+  offPeakRatePerKwh?: number;
+  peakHoursStart?: string;
+  peakHoursEnd?: string;
+  currency?: string;
+  carbonFactorKgPerKwh?: number;
+}): Promise<{ data: unknown; error: string | null }> {
+  return fetchFromApi('/settings/tariff', {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  });
+}
+
+/**
+ * Update alert status (ACKNOWLEDGED or RESOLVED)
+ */
+export async function updateAlertStatus(
+  id: string,
+  status: 'ACKNOWLEDGED' | 'RESOLVED'
+): Promise<{ data: unknown; error: string | null }> {
+  return fetchFromApi(`/alerts/events/${encodeURIComponent(id)}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status }),
+  });
+}
+
+/**
+ * Create new alert rule
+ */
+export async function createAlertRule(
+  rule: Record<string, unknown>
+): Promise<{ data: AlertRuleItem | null; error: string | null }> {
+  return fetchFromApi<AlertRuleItem>('/alerts/rules', {
+    method: 'POST',
+    body: JSON.stringify(rule),
+  });
+}

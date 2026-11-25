@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -6,12 +7,13 @@ export class AlertsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async findAllEvents(status?: string, severity?: string) {
-    const where: any = {};
-    if (status && status !== 'ALL') where.status = status;
-    if (severity && severity !== 'ALL') where.severity = severity;
+    const where: Prisma.AlertEventWhereInput = {};
+    if (status && status !== 'ALL') where.status = status as Prisma.EnumAlertStatusFilter;
+    if (severity && severity !== 'ALL') where.severity = severity as Prisma.EnumAlertSeverityFilter;
 
     const events = await this.prisma.alertEvent.findMany({
       where,
+      include: { rule: true },
       orderBy: { triggeredAt: 'desc' },
       take: 50,
     });
@@ -79,8 +81,30 @@ export class AlertsService {
       message: e.message,
       actualValue: e.actualValue,
       triggeredAt: e.triggeredAt.toISOString(),
-      locationName: 'Monitored Campus Facility',
+      locationName: e.rule?.name ? `${e.rule.name} Scope` : 'Monitored Campus Facility',
     }));
+  }
+
+  async updateEventStatus(id: string, status: 'ACKNOWLEDGED' | 'RESOLVED') {
+    // For fallback IDs (not in DB), return a simulated response
+    const existing = await this.prisma.alertEvent.findUnique({ where: { id } });
+    if (!existing) {
+      return { id, status, updatedAt: new Date().toISOString() };
+    }
+
+    const updated = await this.prisma.alertEvent.update({
+      where: { id },
+      data: {
+        status,
+        ...(status === 'RESOLVED' ? { resolvedAt: new Date() } : {}),
+      },
+    });
+
+    return {
+      id: updated.id,
+      status: updated.status,
+      updatedAt: updated.triggeredAt.toISOString(),
+    };
   }
 
   async findAllRules() {
@@ -160,20 +184,51 @@ export class AlertsService {
     }));
   }
 
-  async createRule(dto: any) {
+  async createRule(dto: Record<string, unknown>) {
     const org = await this.prisma.organization.findFirst();
-    const orgId = org ? org.id : 'org-dhaka-campus';
+    const orgId = org ? org.id : null;
 
+    // If we have a valid org in DB, persist the rule
+    if (orgId) {
+      const rule = await this.prisma.alertRule.create({
+        data: {
+          orgId,
+          name: String(dto.name || 'New Rule'),
+          scope: (dto.scope as 'ORG' | 'BUILDING' | 'FLOOR' | 'DEPARTMENT' | 'METER') || 'ORG',
+          scopeId: dto.scopeId ? String(dto.scopeId) : null,
+          metric: String(dto.metric || 'HOURLY_CONSUMPTION'),
+          condition: String(dto.condition || 'GREATER_THAN'),
+          threshold: Number(dto.threshold) || 100,
+          isActive: true,
+        },
+      });
+
+      return {
+        id: rule.id,
+        orgId: rule.orgId,
+        name: rule.name,
+        scope: rule.scope,
+        scopeTargetName: String(dto.scopeTargetName || 'Campus Wide'),
+        metric: rule.metric,
+        condition: rule.condition,
+        threshold: rule.threshold,
+        unit: rule.metric === 'Z_SCORE_SPIKE' ? 'σ' : 'kWh',
+        isActive: rule.isActive,
+        createdAt: rule.createdAt.toISOString(),
+      };
+    }
+
+    // Fallback: return transient object if no org in DB yet
     return {
       id: `rule-${Date.now()}`,
-      orgId,
-      name: dto.name,
-      scope: dto.scope || 'CAMPUS',
-      scopeTargetName: dto.scopeTargetName || 'Campus Wide',
-      metric: dto.metric || 'HOURLY_CONSUMPTION',
-      condition: dto.condition || 'GREATER_THAN',
-      threshold: dto.threshold || 100,
-      unit: dto.unit || 'kWh',
+      orgId: 'org-dhaka-campus',
+      name: String(dto.name || 'New Rule'),
+      scope: String(dto.scope || 'CAMPUS'),
+      scopeTargetName: String(dto.scopeTargetName || 'Campus Wide'),
+      metric: String(dto.metric || 'HOURLY_CONSUMPTION'),
+      condition: String(dto.condition || 'GREATER_THAN'),
+      threshold: Number(dto.threshold) || 100,
+      unit: String(dto.unit || 'kWh'),
       isActive: true,
       createdAt: new Date().toISOString(),
     };

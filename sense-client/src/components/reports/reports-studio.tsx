@@ -5,6 +5,7 @@ import { ReportGeneratorControls } from './report-generator-controls';
 import { ExecutiveReportPreview } from './executive-report-preview';
 import { HistoricalReportsTable } from './historical-reports-table';
 import type { ExecutiveReportData, ReportItem, ReportType } from '@/types';
+import { getExecutiveReportPreview } from '@/lib/api';
 
 interface ReportsStudioProps {
   initialReport: ExecutiveReportData;
@@ -18,6 +19,24 @@ export function ReportsStudio({
   const [reportType, setReportType] = useState<ReportType>(initialReport.type);
   const [period, setPeriod] = useState<string>('2026-11');
   const [activeTab, setActiveTab] = useState<'PREVIEW' | 'ARCHIVE'>('PREVIEW');
+  const [currentReport, setCurrentReport] = useState<ExecutiveReportData>(initialReport);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleReportTypeChange = async (type: ReportType) => {
+    setReportType(type);
+    setIsLoading(true);
+    const res = await getExecutiveReportPreview(type, period);
+    if (res.data) setCurrentReport(res.data);
+    setIsLoading(false);
+  };
+
+  const handlePeriodChange = async (p: string) => {
+    setPeriod(p);
+    setIsLoading(true);
+    const res = await getExecutiveReportPreview(reportType, p);
+    if (res.data) setCurrentReport(res.data);
+    setIsLoading(false);
+  };
 
   const handlePrint = () => {
     window.print();
@@ -26,7 +45,7 @@ export function ReportsStudio({
   const handleDownloadCsv = () => {
     // Generate actual formatted CSV
     const headers = ['Building Name', 'Consumption (kWh)', 'Cost (BDT)', 'Carbon (kg)', 'Share (%)', 'Efficiency Rating'];
-    const rows = initialReport.buildingAllocations.map((b) => [
+    const rows = currentReport.buildingAllocations.map((b) => [
       `"${b.buildingName}"`,
       b.consumptionKwh,
       b.cost,
@@ -48,7 +67,7 @@ export function ReportsStudio({
   };
 
   const handleDownloadJson = () => {
-    const jsonContent = JSON.stringify(initialReport, null, 2);
+    const jsonContent = JSON.stringify(currentReport, null, 2);
     const blob = new Blob([jsonContent], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -65,9 +84,9 @@ export function ReportsStudio({
       {/* Top Generator Controls */}
       <ReportGeneratorControls
         reportType={reportType}
-        onReportTypeChange={setReportType}
+        onReportTypeChange={handleReportTypeChange}
         period={period}
-        onPeriodChange={setPeriod}
+        onPeriodChange={handlePeriodChange}
         onPrint={handlePrint}
         onDownloadCsv={handleDownloadCsv}
         onDownloadJson={handleDownloadJson}
@@ -102,7 +121,7 @@ export function ReportsStudio({
 
       {/* Main View Area */}
       {activeTab === 'PREVIEW' ? (
-        <ExecutiveReportPreview report={initialReport} />
+        <ExecutiveReportPreview report={currentReport} />
       ) : (
         <HistoricalReportsTable reports={historicalReports} />
       )}

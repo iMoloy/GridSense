@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { Logo } from '@/components/ui/logo';
 import {
   ArrowRight,
@@ -11,7 +12,9 @@ import {
 
 export default function HomePage() {
   return (
-    <div className="flex min-h-screen flex-col bg-slate-950 text-slate-100 selection:bg-emerald-500/20 selection:text-emerald-400">
+    <div
+      className="flex min-h-screen flex-col bg-slate-950 text-slate-100 selection:bg-emerald-500/20 selection:text-emerald-400"
+>
       {/* Top Navbar */}
       <header className="sticky top-0 z-50 border-b border-slate-800/80 bg-slate-950/80 backdrop-blur-md">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
@@ -32,12 +35,27 @@ export default function HomePage() {
       {/* Hero Section */}
       <main className="flex-1">
         <section className="relative overflow-hidden py-16 sm:py-24 lg:py-32">
+          {/* Hero Architectural Background Image with Clean Dark Gradient Mask */}
+          <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
+            <Image
+              src="/hero-building.jpg"
+              alt="GridSense Smart Facility Architecture"
+              fill
+              priority
+              quality={90}
+              sizes="100vw"
+              className="object-cover object-center opacity-40"
+            />
+            {/* Deep Slate Gradient Mask so building is visible while text remains high-contrast */}
+            <div className="absolute inset-0 bg-gradient-to-b from-slate-950/50 via-slate-950/75 to-slate-950" />
+          </div>
+
           {/* Subtle glow backdrop */}
-          <div className="pointer-events-none absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2">
+          <div className="pointer-events-none absolute left-1/2 top-0 z-0 -translate-x-1/2 -translate-y-1/2">
             <div className="h-96 w-[600px] rounded-full bg-emerald-500/10 blur-3xl" />
           </div>
 
-          <div className="relative mx-auto max-w-5xl px-4 text-center sm:px-6 lg:px-8">
+          <div className="relative z-10 mx-auto max-w-5xl px-4 text-center sm:px-6 lg:px-8">
             <div className="inline-flex max-w-full items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-[11px] font-semibold text-emerald-300 sm:px-3.5 sm:text-xs">
               <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-400 animate-pulse" />
               <span className="truncate sm:whitespace-normal">Smart Building Energy Intelligence &amp; Telemetry</span>
@@ -126,8 +144,8 @@ export default function HomePage() {
                   Multi-Tier Hierarchy
                 </h3>
                 <p className="mt-2 text-xs text-slate-400">
-                  Organization $\to$ Building $\to$ Floor $\to$ Department $\to$
-                  Meter modeling with isolated multi-tenancy.
+                  Organization → Building → Floor → Department → Meter
+                  modeling with isolated multi-tenancy.
                 </p>
               </div>
             </div>

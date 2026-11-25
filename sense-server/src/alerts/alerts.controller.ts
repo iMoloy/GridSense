@@ -1,5 +1,5 @@
-import { Controller, Get, Post, Body, Query } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
+import { Controller, Get, Post, Patch, Body, Query, Param } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { AlertsService } from './alerts.service';
 
 @ApiTags('alerts')
@@ -18,6 +18,15 @@ export class AlertsController {
     return this.alertsService.findAllEvents(status, severity);
   }
 
+  @Patch('events/:id/status')
+  @ApiOperation({ summary: 'Update alert event status (ACKNOWLEDGE or RESOLVE)' })
+  updateEventStatus(
+    @Param('id') id: string,
+    @Body() body: { status: 'ACKNOWLEDGED' | 'RESOLVED' }
+  ) {
+    return this.alertsService.updateEventStatus(id, body.status);
+  }
+
   @Get('rules')
   @ApiOperation({ summary: 'Get configured threshold and anomaly rules' })
   findAllRules() {
@@ -26,7 +35,7 @@ export class AlertsController {
 
   @Post('rules')
   @ApiOperation({ summary: 'Create new alert rule' })
-  createRule(@Body() body: any) {
+  createRule(@Body() body: Record<string, unknown>) {
     return this.alertsService.createRule(body);
   }
 }

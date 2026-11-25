@@ -9,19 +9,85 @@ export class AnalyticsService {
     const org = await this.prisma.organization.findFirst();
     const orgId = org ? org.id : 'org-dhaka-campus';
     const rate = org ? org.ratePerKwh : 8.5;
+    const currency = org?.currency || 'BDT';
 
-    // Time Series 24-Hour curve aggregation
+    // 1. Get latest reading timestamp as anchor
+    const latestReading = await this.prisma.reading.findFirst({
+      orderBy: { timestamp: 'desc' },
+      select: { timestamp: true },
+    });
+
+    const refDate = latestReading?.timestamp || new Date();
+    const startDate = new Date(refDate.getTime() - 24 * 3600 * 1000);
+    const prevStartDate = new Date(refDate.getTime() - 48 * 3600 * 1000);
+
+    // 2. Fetch all readings in the last 24h
+    const [readings24h, prevReadings24h, buildings, activeAnomaliesCount, activeMetersCount, totalMetersCount] =
+      await Promise.all([
+        this.prisma.reading.findMany({
+          where: { timestamp: { gte: startDate, lte: refDate } },
+          select: { timestamp: true, value: true, cost: true, carbonKg: true, meterId: true },
+        }),
+        this.prisma.reading.aggregate({
+          where: { timestamp: { gte: prevStartDate, lt: startDate } },
+          _sum: { value: true, cost: true, carbonKg: true },
+        }),
+        this.prisma.building.findMany({
+          include: {
+            floors: {
+              include: {
+                departments: {
+                  include: { meters: true },
+                },
+              },
+            },
+          },
+        }),
+        this.prisma.alertEvent.count({
+          where: { status: { in: ['NEW', 'ACKNOWLEDGED'] } },
+        }),
+        this.prisma.meter.count({ where: { isActive: true } }),
+        this.prisma.meter.count(),
+      ]);
+
+    // 3. Aggregate 2-hour buckets for 24h curve
     const hours = [
       '00:00', '02:00', '04:00', '06:00', '08:00', '10:00',
       '12:00', '14:00', '16:00', '18:00', '20:00', '22:00',
     ];
 
+    const bucketSums = new Map<number, { kwh: number; cost: number; carbon: number }>();
+    for (let i = 0; i < 12; i++) {
+      bucketSums.set(i * 2, { kwh: 0, cost: 0, carbon: 0 });
+    }
+
+    let peakKwh = 0;
+    let offPeakKwh = 0;
+
+    for (const r of readings24h) {
+      const h = r.timestamp.getUTCHours();
+      const bucket = Math.floor(h / 2) * 2;
+      const b = bucketSums.get(bucket);
+      if (b) {
+        b.kwh += r.value;
+        b.cost += r.cost;
+        b.carbon += r.carbonKg;
+      }
+
+      // Peak hours: 18:00 - 22:00
+      if (h >= 18 && h < 22) {
+        peakKwh += r.value;
+      } else {
+        offPeakKwh += r.value;
+      }
+    }
+
     const timeSeries = hours.map((hour, idx) => {
-      const isPeak = idx >= 8 && idx <= 10;
-      const baseKwh = idx < 3 ? 1200 : idx < 7 ? 2800 : isPeak ? 4600 : 3400;
-      const kwh = baseKwh + (idx * 37) % 250;
-      const cost = kwh * rate;
-      const carbonKg = kwh * 0.65;
+      const bucketHour = idx * 2;
+      const b = bucketSums.get(bucketHour) || { kwh: 0, cost: 0, carbon: 0 };
+      const kwh = Math.round(b.kwh > 0 ? b.kwh : (1200 + idx * 250));
+      const cost = Math.round(b.cost > 0 ? b.cost : kwh * rate);
+      const carbonKg = Math.round(b.carbon > 0 ? b.carbon : kwh * 0.65);
 
       return {
         timestamp: `2026-11-25T${hour}:00Z`,
@@ -32,77 +98,84 @@ export class AnalyticsService {
       };
     });
 
-    const totalConsumption = timeSeries.reduce((acc, p) => acc + p.kwh, 0);
-    const totalCost = timeSeries.reduce((acc, p) => acc + p.cost, 0);
-    const totalCarbon = timeSeries.reduce((acc, p) => acc + p.carbonKg, 0);
+    const totalConsumption = Math.round(
+      readings24h.length > 0
+        ? readings24h.reduce((acc, p) => acc + p.value, 0)
+        : timeSeries.reduce((acc, p) => acc + p.kwh, 0)
+    );
 
-    const peakKwh = Math.round(totalConsumption * 0.365);
-    const offPeakKwh = totalConsumption - peakKwh;
+    const totalCost = Math.round(
+      readings24h.length > 0
+        ? readings24h.reduce((acc, p) => acc + p.cost, 0)
+        : timeSeries.reduce((acc, p) => acc + p.cost, 0)
+    );
 
-    // Get buildings for shares
-    const buildings = await this.prisma.building.findMany({
-      include: {
-        floors: {
-          include: {
-            departments: {
-              include: { meters: true },
-            },
-          },
-        },
-      },
+    const totalCarbon = Math.round(
+      readings24h.length > 0
+        ? readings24h.reduce((acc, p) => acc + p.carbonKg, 0)
+        : timeSeries.reduce((acc, p) => acc + p.carbonKg, 0)
+    );
+
+    const prevKwh = prevReadings24h._sum.value || totalConsumption * 1.04;
+    const consumptionChangePercent = prevKwh > 0
+      ? Number((((totalConsumption - prevKwh) / prevKwh) * 100).toFixed(1))
+      : -4.2;
+
+    const maxPoint = timeSeries.reduce((max, p) => (p.kwh > max.kwh ? p : max), timeSeries[0]);
+    const peakDemandKwh = maxPoint ? maxPoint.kwh : 4850;
+    const peakHourLabel = maxPoint ? `${maxPoint.label} - ${parseInt(maxPoint.label) + 2}:00` : '18:00 - 20:00';
+
+    // 4. Calculate real building shares from readings
+    const readingMapByMeter = new Map<string, number>();
+    for (const r of readings24h) {
+      readingMapByMeter.set(r.meterId, (readingMapByMeter.get(r.meterId) || 0) + r.value);
+    }
+
+    const buildingShares = buildings.map((b, idx) => {
+      const bMeterIds = b.floors.flatMap((f) =>
+        f.departments.flatMap((d) => d.meters.map((m) => m.id))
+      );
+      let bKwh = 0;
+      for (const mId of bMeterIds) {
+        bKwh += readingMapByMeter.get(mId) || 0;
+      }
+      const consumptionKwh = Math.round(bKwh > 0 ? bKwh : (totalConsumption * (0.35 - idx * 0.05)));
+      const percentage = totalConsumption > 0
+        ? Number(((consumptionKwh / totalConsumption) * 100).toFixed(1))
+        : 25.0;
+
+      return {
+        buildingId: b.id,
+        buildingName: b.name,
+        consumptionKwh,
+        percentage,
+        activeMeters: bMeterIds.length > 0 ? bMeterIds.length : 12,
+        trend: (idx % 2 === 0 ? 'up' : 'down') as 'up' | 'down',
+      };
     });
 
-    const buildingShares =
-      buildings.length > 0
-        ? buildings.map((b, idx) => {
-            const count = b.floors.reduce(
-              (acc, f) => acc + f.departments.reduce((dAcc, d) => dAcc + d.meters.length, 0),
-              0
-            );
-            const share = idx === 0 ? 33.5 : idx === 1 ? 29.0 : idx === 2 ? 20.0 : 17.5;
-            return {
-              buildingId: b.id,
-              buildingName: b.name,
-              consumptionKwh: Math.round(totalConsumption * (share / 100)),
-              percentage: share,
-              activeMeters: count > 0 ? count : 24,
-              trend: (idx % 2 === 0 ? 'up' : 'down') as 'up' | 'down',
-            };
-          })
-        : [
-            {
-              buildingId: 'b-sci',
-              buildingName: 'Science Complex & Laboratories',
-              consumptionKwh: 16400,
-              percentage: 33.5,
-              activeMeters: 42,
-              trend: 'up' as const,
-            },
-            {
-              buildingId: 'b-eng',
-              buildingName: 'Engineering & Computing Tower',
-              consumptionKwh: 14200,
-              percentage: 29.0,
-              activeMeters: 38,
-              trend: 'down' as const,
-            },
-            {
-              buildingId: 'b-lib',
-              buildingName: 'Central Library & Admin Hub',
-              consumptionKwh: 9800,
-              percentage: 20.0,
-              activeMeters: 26,
-              trend: 'down' as const,
-            },
-            {
-              buildingId: 'b-res',
-              buildingName: 'Student Residential Halls',
-              consumptionKwh: 8520,
-              percentage: 17.5,
-              activeMeters: 68,
-              trend: 'neutral' as const,
-            },
-          ];
+    // 5. Peak vs Off-Peak
+    const totalPeakSum = peakKwh + offPeakKwh;
+    const peakPercentage = totalPeakSum > 0 ? Number(((peakKwh / totalPeakSum) * 100).toFixed(1)) : 36.5;
+    const offPeakPercentage = Number((100 - peakPercentage).toFixed(1));
+
+    // 6. Recent real alerts
+    const alertsFromDb = await this.prisma.alertEvent.findMany({
+      include: { rule: true },
+      orderBy: { triggeredAt: 'desc' },
+      take: 4,
+    });
+
+    const recentAlerts = alertsFromDb.map((a) => ({
+      id: a.id,
+      severity: a.severity,
+      status: a.status,
+      title: a.title,
+      message: a.message,
+      actualValue: a.actualValue,
+      triggeredAt: a.triggeredAt.toISOString(),
+      locationName: a.rule?.name ? `${a.rule.name} Scope` : 'Monitored Campus Facility',
+    }));
 
     return {
       organization: {
@@ -111,89 +184,130 @@ export class AnalyticsService {
         slug: org ? org.slug : 'dhaka-campus',
         industry: org?.industry || 'Higher Education & Research',
         ratePerKwh: rate,
-        currency: org?.currency || 'BDT',
+        currency,
         createdAt: org ? org.createdAt.toISOString() : new Date().toISOString(),
       },
       metrics: {
         totalConsumptionKwh: totalConsumption,
         totalCost,
         totalCarbonKg: totalCarbon,
-        peakDemandKwh: 4850,
-        peakHourLabel: '19:00 - 20:00',
-        activeAnomaliesCount: 2,
-        consumptionChangePercent: -4.2,
-        costChangePercent: -4.2,
-        carbonChangePercent: -4.2,
-        activeMetersCount: 174,
-        totalMetersCount: 180,
+        peakDemandKwh,
+        peakHourLabel,
+        activeAnomaliesCount: activeAnomaliesCount > 0 ? activeAnomaliesCount : 2,
+        consumptionChangePercent,
+        costChangePercent: consumptionChangePercent,
+        carbonChangePercent: consumptionChangePercent,
+        activeMetersCount: activeMetersCount > 0 ? activeMetersCount : 174,
+        totalMetersCount: totalMetersCount > 0 ? totalMetersCount : 180,
       },
       timeSeries,
       buildingShares,
       peakDistribution: {
-        peakKwh,
-        offPeakKwh,
-        peakPercentage: 36.5,
-        offPeakPercentage: 63.5,
+        peakKwh: Math.round(peakKwh > 0 ? peakKwh : totalConsumption * 0.365),
+        offPeakKwh: Math.round(offPeakKwh > 0 ? offPeakKwh : totalConsumption * 0.635),
+        peakPercentage,
+        offPeakPercentage,
       },
-      recentAlerts: [
-        {
-          id: 'alt-1',
-          severity: 'CRITICAL',
-          status: 'NEW',
-          title: 'Unusual HVAC Surge Spike (Z-Score: +3.8σ)',
-          message:
-            'Science Complex Floor 3 Lab chiller consumed 240% above 30-day baseline during off-shift hours.',
-          actualValue: 184.2,
-          triggeredAt: new Date(Date.now() - 1000 * 60 * 14).toISOString(),
-          locationName: 'Science Complex • Lab 304',
-        },
-        {
-          id: 'alt-2',
-          severity: 'WARNING',
-          status: 'NEW',
-          title: 'Threshold Exceeded (> 45 kWh/hr)',
-          message:
-            'Server Room Meter #4 exceeded pre-configured threshold by 12.4 kWh.',
-          actualValue: 57.4,
-          triggeredAt: new Date(Date.now() - 1000 * 60 * 58).toISOString(),
-          locationName: 'Engineering Tower • Data Center',
-        },
-      ],
+      recentAlerts,
     };
   }
 
   async getStudio(timeframe: string = '7d', metric: string = 'kwh') {
     const org = await this.prisma.organization.findFirst();
+    const rate = org?.ratePerKwh || 8.5;
+
+    // Anchor date from DB
+    const latestReading = await this.prisma.reading.findFirst({
+      orderBy: { timestamp: 'desc' },
+      select: { timestamp: true },
+    });
+    const refDate = latestReading?.timestamp || new Date();
+
+    // Calculate duration in days based on timeframe
+    let daysCount = 7;
+    if (timeframe === '24h') daysCount = 1;
+    else if (timeframe === '30d') daysCount = 30;
+    else if (timeframe === '90d') daysCount = 90;
+
+    const currentStart = new Date(refDate.getTime() - daysCount * 24 * 3600 * 1000);
+    const prevStart = new Date(refDate.getTime() - daysCount * 2 * 24 * 3600 * 1000);
+
+    // Aggregate totals for the requested timeframe from Neon DB
+    const [currentAgg, prevAgg, buildings] = await Promise.all([
+      this.prisma.reading.aggregate({
+        where: { timestamp: { gte: currentStart, lte: refDate } },
+        _sum: { value: true, cost: true, carbonKg: true },
+      }),
+      this.prisma.reading.aggregate({
+        where: { timestamp: { gte: prevStart, lt: currentStart } },
+        _sum: { value: true, cost: true, carbonKg: true },
+      }),
+      this.prisma.building.findMany({
+        include: {
+          floors: {
+            include: {
+              departments: {
+                include: { meters: true },
+              },
+            },
+          },
+        },
+      }),
+    ]);
+
+    const totalConsumptionKwh = Math.round(currentAgg._sum.value || 342600);
+    const totalCost = Math.round(currentAgg._sum.cost || totalConsumptionKwh * rate);
+    const totalCarbonKg = Math.round(currentAgg._sum.carbonKg || totalConsumptionKwh * 0.65);
+
+    // 168-hour matrix (Mon..Sun x 0..23)
     const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     const heatmap: { day: string; hour: number; value: number; intensity: 0 | 1 | 2 | 3 | 4 }[] = [];
+
+    // Query 7 days of readings to compute real hourly profiles
+    const weekStart = new Date(refDate.getTime() - 7 * 24 * 3600 * 1000);
+    const weekReadings = await this.prisma.reading.findMany({
+      where: { timestamp: { gte: weekStart, lte: refDate } },
+      select: { timestamp: true, value: true },
+    });
+
+    const dayHourMap = new Map<string, number>();
+    for (const r of weekReadings) {
+      const d = days[r.timestamp.getUTCDay() === 0 ? 6 : r.timestamp.getUTCDay() - 1]; // Convert Sun(0) to last
+      const h = r.timestamp.getUTCHours();
+      const key = `${d}-${h}`;
+      dayHourMap.set(key, (dayHourMap.get(key) || 0) + r.value);
+    }
+
+    // Find max value for relative intensity scaling
+    let maxHourlyVal = 1;
+    for (const val of dayHourMap.values()) {
+      if (val > maxHourlyVal) maxHourlyVal = val;
+    }
 
     for (const day of days) {
       const isWeekend = day === 'Sat' || day === 'Sun';
       for (let hour = 0; hour < 24; hour++) {
-        let intensity: 0 | 1 | 2 | 3 | 4 = 0;
-        let value = 1200;
+        const key = `${day}-${hour}`;
+        const realVal = dayHourMap.get(key);
 
-        if (isWeekend) {
-          if (hour >= 18 && hour <= 21) {
-            intensity = 2;
-            value = 2600;
-          } else if (hour >= 9 && hour <= 17) {
-            intensity = 1;
-            value = 1800;
-          }
+        let value = realVal ? Math.round(realVal) : 1200;
+        let intensity: 0 | 1 | 2 | 3 | 4 = 0;
+
+        if (realVal) {
+          const ratio = realVal / maxHourlyVal;
+          if (ratio > 0.8) intensity = 4;
+          else if (ratio > 0.6) intensity = 3;
+          else if (ratio > 0.4) intensity = 2;
+          else if (ratio > 0.2) intensity = 1;
+          else intensity = 0;
         } else {
-          if (hour >= 18 && hour <= 21) {
-            intensity = 4;
-            value = 4850;
-          } else if (hour >= 13 && hour <= 17) {
-            intensity = 3;
-            value = 3900;
-          } else if (hour >= 8 && hour <= 12) {
-            intensity = 2;
-            value = 3100;
-          } else if (hour >= 6 && hour <= 7) {
-            intensity = 1;
-            value = 1900;
+          // Synthetic fallback if no data for that cell
+          if (isWeekend) {
+            intensity = hour >= 18 && hour <= 21 ? 2 : hour >= 9 && hour <= 17 ? 1 : 0;
+            value = intensity === 2 ? 2600 : intensity === 1 ? 1800 : 1100;
+          } else {
+            intensity = hour >= 18 && hour <= 21 ? 4 : hour >= 13 && hour <= 17 ? 3 : hour >= 8 && hour <= 12 ? 2 : hour >= 6 ? 1 : 0;
+            value = intensity === 4 ? 4850 : intensity === 3 ? 3900 : intensity === 2 ? 3100 : intensity === 1 ? 1900 : 1250;
           }
         }
 
@@ -201,24 +315,65 @@ export class AnalyticsService {
       }
     }
 
+    // Real facility comparisons
+    const facilityComparison = await Promise.all(
+      buildings.map(async (b) => {
+        const mIds = b.floors.flatMap((f) =>
+          f.departments.flatMap((d) => d.meters.map((m) => m.id))
+        );
+
+        const [cur, prev] = await Promise.all([
+          this.prisma.reading.aggregate({
+            where: { meterId: { in: mIds }, timestamp: { gte: currentStart, lte: refDate } },
+            _sum: { value: true, cost: true, carbonKg: true },
+          }),
+          this.prisma.reading.aggregate({
+            where: { meterId: { in: mIds }, timestamp: { gte: prevStart, lt: currentStart } },
+            _sum: { value: true },
+          }),
+        ]);
+
+        const currentPeriodKwh = Math.round(cur._sum.value || 0);
+        const previousPeriodKwh = Math.round(prev._sum.value || 0);
+        const cost = Math.round(cur._sum.cost || currentPeriodKwh * rate);
+        const carbonKg = Math.round(cur._sum.carbonKg || currentPeriodKwh * 0.65);
+        const changePercent = previousPeriodKwh > 0
+          ? Number((((currentPeriodKwh - previousPeriodKwh) / previousPeriodKwh) * 100).toFixed(1))
+          : 0;
+
+        return {
+          id: b.id,
+          name: b.name,
+          currentPeriodKwh,
+          previousPeriodKwh,
+          cost,
+          carbonKg,
+          changePercent,
+        };
+      })
+    );
+
+    const projectedMonthEndCost = Math.round((totalCost / daysCount) * 30);
+    const budgetLimitCost = Math.round(projectedMonthEndCost * 1.05);
+
     return {
       organization: {
         id: org?.id || 'org-dhaka-campus',
         name: org?.name || 'Dhaka Smart Campus',
         slug: org?.slug || 'dhaka-campus',
         industry: org?.industry || 'Higher Education & Research',
-        ratePerKwh: org?.ratePerKwh || 8.5,
+        ratePerKwh: rate,
         currency: org?.currency || 'BDT',
         createdAt: org?.createdAt?.toISOString() || new Date().toISOString(),
       },
       timeframe,
       metric,
-      totalConsumptionKwh: 342600,
-      totalCost: 2912100,
-      totalCarbonKg: 222690,
-      peakDemandKw: 840,
+      totalConsumptionKwh,
+      totalCost,
+      totalCarbonKg,
+      peakDemandKw: Math.round(totalConsumptionKwh / (daysCount * 24) * 2.4),
       heatmap,
-      facilityComparison: [
+      facilityComparison: facilityComparison.length > 0 ? facilityComparison : [
         {
           id: 'b-sci',
           name: 'Science Complex & Labs',
@@ -228,43 +383,16 @@ export class AnalyticsService {
           carbonKg: 74620,
           changePercent: -6.2,
         },
-        {
-          id: 'b-eng',
-          name: 'Engineering Tower',
-          currentPeriodKwh: 99400,
-          previousPeriodKwh: 95200,
-          cost: 844900,
-          carbonKg: 64610,
-          changePercent: 4.4,
-        },
-        {
-          id: 'b-lib',
-          name: 'Central Library Hub',
-          currentPeriodKwh: 68600,
-          previousPeriodKwh: 71200,
-          cost: 583100,
-          carbonKg: 44590,
-          changePercent: -3.6,
-        },
-        {
-          id: 'b-res',
-          name: 'Residential Halls',
-          currentPeriodKwh: 59800,
-          previousPeriodKwh: 58400,
-          cost: 508300,
-          carbonKg: 38870,
-          changePercent: 2.4,
-        },
       ],
       projection: {
-        actualToDateKwh: 242000,
-        actualToDateCost: 2057000,
-        projectedMonthEndCost: 428000,
-        budgetLimitCost: 450000,
+        actualToDateKwh: totalConsumptionKwh,
+        actualToDateCost: totalCost,
+        projectedMonthEndCost,
+        budgetLimitCost,
         projectedVariancePercent: -4.8,
-        peakTariffCost: 154080,
-        offPeakTariffCost: 273920,
-        potentialSavingsCost: 38500,
+        peakTariffCost: Math.round(projectedMonthEndCost * 0.36),
+        offPeakTariffCost: Math.round(projectedMonthEndCost * 0.64),
+        potentialSavingsCost: Math.round(projectedMonthEndCost * 0.08),
       },
       timeSeries: [],
     };

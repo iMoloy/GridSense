@@ -1,6 +1,5 @@
 import { getBuildings } from '@/lib/api';
-import { BuildingCard } from '@/components/buildings/building-card';
-import { BuildingSearch } from '@/components/buildings/building-search';
+import { BuildingsDirectory } from '@/components/buildings/buildings-directory';
 import type { Building } from '@/types';
 
 // Fallback campus buildings dataset (instantly active, seamlessly connects to NestJS backend when running)
@@ -109,12 +108,8 @@ export default async function BuildingsPage() {
         </div>
       </div>
 
-      {/* Buildings Grid */}
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {buildings.map((building) => (
-          <BuildingCard key={building.id} building={building} />
-        ))}
-      </div>
+      {/* Buildings Directory with Live Search & Category Filtering */}
+      <BuildingsDirectory initialBuildings={buildings} />
     </div>
   );
 }

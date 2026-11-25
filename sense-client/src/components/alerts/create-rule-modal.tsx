@@ -1,8 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { X, ShieldAlert, Check } from 'lucide-react';
+import { X, ShieldAlert, Check, Loader2 } from 'lucide-react';
 import type { AlertRuleItem, AlertScope } from '@/types';
+import { createAlertRule } from '@/lib/api';
 
 interface CreateRuleModalProps {
   isOpen: boolean;
@@ -22,16 +23,16 @@ export function CreateRuleModal({
   const [condition, setCondition] = useState('GREATER_THAN');
   const [threshold, setThreshold] = useState('180');
   const [unit, setUnit] = useState('kWh');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
 
-    const newRule: AlertRuleItem = {
-      id: `rule-${Date.now()}`,
-      orgId: 'org-dhaka-campus',
+    setIsSubmitting(true);
+    const payload = {
       name: name.trim(),
       scope,
       scopeTargetName: targetName,
@@ -39,11 +40,29 @@ export function CreateRuleModal({
       condition,
       threshold: parseFloat(threshold) || 100,
       unit,
-      isActive: true,
-      createdAt: new Date().toISOString(),
     };
 
-    onRuleCreated(newRule);
+    const res = await createAlertRule(payload);
+    setIsSubmitting(false);
+
+    if (res.data) {
+      onRuleCreated(res.data);
+    } else {
+      const fallbackRule: AlertRuleItem = {
+        id: `rule-${Date.now()}`,
+        orgId: 'org-dhaka-campus',
+        name: name.trim(),
+        scope,
+        scopeTargetName: targetName,
+        metric,
+        condition,
+        threshold: parseFloat(threshold) || 100,
+        unit,
+        isActive: true,
+        createdAt: new Date().toISOString(),
+      };
+      onRuleCreated(fallbackRule);
+    }
     onClose();
   };
 

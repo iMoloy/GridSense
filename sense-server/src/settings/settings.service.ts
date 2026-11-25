@@ -19,11 +19,11 @@ export class SettingsService {
         createdAt: org?.createdAt?.toISOString() || '2026-01-01T00:00:00Z',
       },
       tariff: {
-        peakRatePerKwh: 8.5,
+        peakRatePerKwh: org?.ratePerKwh || 8.5,
         offPeakRatePerKwh: 6.2,
         peakHoursStart: '18:00',
         peakHoursEnd: '22:00',
-        currency: 'BDT',
+        currency: org?.currency || 'BDT',
         carbonFactorKgPerKwh: 0.65,
       },
       telemetry: {
@@ -72,6 +72,70 @@ export class SettingsService {
           lastActiveAt: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
         },
       ],
+    };
+  }
+
+  async updateOrg(body: { name?: string; industry?: string; slug?: string }) {
+    const org = await this.prisma.organization.findFirst();
+    if (!org) {
+      return {
+        id: 'org-dhaka-campus',
+        name: body.name || 'Dhaka Smart Campus',
+        slug: body.slug || 'dhaka-campus',
+        industry: body.industry || 'Higher Education & Research',
+        ratePerKwh: 8.5,
+        currency: 'BDT',
+        createdAt: '2026-01-01T00:00:00Z',
+      };
+    }
+
+    const updated = await this.prisma.organization.update({
+      where: { id: org.id },
+      data: {
+        ...(body.name ? { name: body.name } : {}),
+        ...(body.industry !== undefined ? { industry: body.industry } : {}),
+        ...(body.slug ? { slug: body.slug } : {}),
+      },
+    });
+
+    return {
+      id: updated.id,
+      name: updated.name,
+      slug: updated.slug,
+      industry: updated.industry,
+      ratePerKwh: updated.ratePerKwh,
+      currency: updated.currency,
+      createdAt: updated.createdAt.toISOString(),
+    };
+  }
+
+  async updateTariff(body: {
+    peakRatePerKwh?: number;
+    offPeakRatePerKwh?: number;
+    peakHoursStart?: string;
+    peakHoursEnd?: string;
+    currency?: string;
+    carbonFactorKgPerKwh?: number;
+  }) {
+    const org = await this.prisma.organization.findFirst();
+
+    if (org && body.peakRatePerKwh !== undefined) {
+      await this.prisma.organization.update({
+        where: { id: org.id },
+        data: {
+          ratePerKwh: body.peakRatePerKwh,
+          ...(body.currency ? { currency: body.currency } : {}),
+        },
+      });
+    }
+
+    return {
+      peakRatePerKwh: body.peakRatePerKwh ?? (org?.ratePerKwh ?? 8.5),
+      offPeakRatePerKwh: body.offPeakRatePerKwh ?? 6.2,
+      peakHoursStart: body.peakHoursStart ?? '18:00',
+      peakHoursEnd: body.peakHoursEnd ?? '22:00',
+      currency: body.currency ?? (org?.currency ?? 'BDT'),
+      carbonFactorKgPerKwh: body.carbonFactorKgPerKwh ?? 0.65,
     };
   }
 }

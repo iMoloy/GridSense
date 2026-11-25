@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { DollarSign, Leaf, Clock, Save, Check } from 'lucide-react';
 import type { TariffConfig } from '@/types';
+import { updateTariffSettings } from '@/lib/api';
 
 interface TariffRateCardProps {
   initialTariff: TariffConfig;
@@ -16,9 +17,20 @@ export function TariffRateCard({ initialTariff }: TariffRateCardProps) {
   const [currency, setCurrency] = useState(initialTariff.currency);
   const [carbonFactor, setCarbonFactor] = useState(initialTariff.carbonFactorKgPerKwh.toString());
   const [isSaved, setIsSaved] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSaving(true);
+    await updateTariffSettings({
+      peakRatePerKwh: parseFloat(peakRate) || 8.5,
+      offPeakRatePerKwh: parseFloat(offPeakRate) || 6.2,
+      peakHoursStart: peakStart,
+      peakHoursEnd: peakEnd,
+      currency,
+      carbonFactorKgPerKwh: parseFloat(carbonFactor) || 0.65,
+    });
+    setIsSaving(false);
     setIsSaved(true);
     setTimeout(() => setIsSaved(false), 2500);
   };

@@ -11,7 +11,7 @@ interface LogoProps {
 export function Logo({
   size = 'md',
   subtitle = true,
-  href = '/dashboard',
+  href = '/',
   className,
 }: LogoProps) {
   const sizeStyles = {
