@@ -14,7 +14,7 @@ import { SettingsModule } from './settings/settings.module';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: ['.env', '.env.local'],
+      envFilePath: ['.env', '.env.local', '../.env', '../.env.local'],
     }),
     PrismaModule,
     BuildingsModule,
