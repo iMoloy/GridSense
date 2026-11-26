@@ -54,7 +54,7 @@ export class BuildingsService {
         totalArea: b.totalArea,
         floorsCount: b.floors.length,
         metersCount,
-        currentLoadKwh: currentLoadKw > 0 ? currentLoadKw : 12400,
+        currentLoadKwh: currentLoadKw > 0 ? Math.round(currentLoadKw) : 12400,
       };
     });
   }
@@ -105,6 +105,11 @@ export class BuildingsService {
           dailyTotalKwh += dailyConsumptionKwh;
           if (currentLoadKw > peakDemandKw) peakDemandKw = currentLoadKw;
 
+          // Determine meter status based on load level
+          let meterStatus: 'ONLINE' | 'OFFLINE' | 'SPIKE_WARNING' = 'ONLINE';
+          if (!meter.isActive) meterStatus = 'OFFLINE';
+          else if (currentLoadKw > 85) meterStatus = 'SPIKE_WARNING';
+
           return {
             id: meter.id,
             departmentId: meter.departmentId,
@@ -116,7 +121,7 @@ export class BuildingsService {
             installedAt: meter.installedAt.toISOString(),
             currentLoadKw,
             dailyConsumptionKwh,
-            status: currentLoadKw > 85 ? 'SPIKE_WARNING' : 'ONLINE',
+            status: meterStatus,
           };
         });
 
@@ -142,6 +147,20 @@ export class BuildingsService {
       };
     });
 
+    const metersCount = formattedFloors.reduce(
+        (acc, f) => acc + f.departments.reduce((dAcc, d) => dAcc + d.meters.length, 0),
+        0
+      );
+
+    // Energy score: inverse proportion of average load vs area
+    // Higher score = more efficient (less kWh per sqm per day)
+    const areaM2 = building.totalArea ? building.totalArea * 0.0929 : 10000;
+    const kwhPerM2PerDay = dailyTotalKwh > 0 ? dailyTotalKwh / areaM2 : 0;
+    // Benchmark: 1.5 kWh/m²/day → 100, 3.0 kWh/m²/day → 50
+    const energyScore = kwhPerM2PerDay > 0
+      ? Math.max(10, Math.min(100, Math.round(100 - (kwhPerM2PerDay - 1.5) * 33)))
+      : 92;
+
     return {
       id: building.id,
       orgId: building.orgId,
@@ -151,15 +170,12 @@ export class BuildingsService {
       longitude: building.longitude,
       totalArea: building.totalArea,
       floorsCount: building.floors.length,
-      metersCount: formattedFloors.reduce(
-        (acc, f) => acc + f.departments.reduce((dAcc, d) => dAcc + d.meters.length, 0),
-        0
-      ),
+      metersCount,
       dailyTotalKwh: dailyTotalKwh > 0 ? dailyTotalKwh : 16400,
       monthlyTotalKwh: dailyTotalKwh > 0 ? dailyTotalKwh * 30 : 492000,
       peakDemandKw: peakDemandKw > 0 ? peakDemandKw : 840,
-      carbonEmissionKg: dailyTotalKwh > 0 ? dailyTotalKwh * 0.65 : 10660,
-      energyScore: 92,
+      carbonEmissionKg: dailyTotalKwh > 0 ? Math.round(dailyTotalKwh * 0.65) : 10660,
+      energyScore,
       floors: formattedFloors,
     };
   }

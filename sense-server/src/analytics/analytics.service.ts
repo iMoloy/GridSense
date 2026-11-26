@@ -18,10 +18,16 @@ export class AnalyticsService {
     });
 
     const refDate = latestReading?.timestamp || new Date();
-    const startDate = new Date(refDate.getTime() - 24 * 3600 * 1000);
-    const prevStartDate = new Date(refDate.getTime() - 48 * 3600 * 1000);
 
-    // 2. Fetch all readings in the last 24h
+    // Respect the requested timeframe for the window (default: 24h)
+    let windowHours = 24;
+    if (timeframe === '7d') windowHours = 24 * 7;
+    else if (timeframe === '30d') windowHours = 24 * 30;
+
+    const startDate = new Date(refDate.getTime() - windowHours * 3600 * 1000);
+    const prevStartDate = new Date(refDate.getTime() - windowHours * 2 * 3600 * 1000);
+
+    // 2. Fetch all readings in the requested timeframe window
     const [readings24h, prevReadings24h, buildings, activeAnomaliesCount, activeMetersCount, totalMetersCount] =
       await Promise.all([
         this.prisma.reading.findMany({
@@ -89,8 +95,11 @@ export class AnalyticsService {
       const cost = Math.round(b.cost > 0 ? b.cost : kwh * rate);
       const carbonKg = Math.round(b.carbon > 0 ? b.carbon : kwh * 0.65);
 
+      // Use the actual anchor date for timestamps (not hardcoded)
+      const dateStr = refDate.toISOString().split('T')[0];
+
       return {
-        timestamp: `2026-11-25T${hour}:00Z`,
+        timestamp: `${dateStr}T${hour}:00Z`,
         label: hour,
         kwh,
         cost,
@@ -315,46 +324,77 @@ export class AnalyticsService {
       }
     }
 
-    // Real facility comparisons
-    const facilityComparison = await Promise.all(
-      buildings.map(async (b) => {
-        const mIds = b.floors.flatMap((f) =>
-          f.departments.flatMap((d) => d.meters.map((m) => m.id))
-        );
+    // Real facility comparisons — batched in a single query to avoid N+1
+    const allBuildingMeterIds = buildings.map((b) => ({
+      id: b.id,
+      name: b.name,
+      mIds: b.floors.flatMap((f) =>
+        f.departments.flatMap((d) => d.meters.map((m) => m.id))
+      ),
+    }));
 
-        const [cur, prev] = await Promise.all([
-          this.prisma.reading.aggregate({
-            where: { meterId: { in: mIds }, timestamp: { gte: currentStart, lte: refDate } },
-            _sum: { value: true, cost: true, carbonKg: true },
-          }),
-          this.prisma.reading.aggregate({
-            where: { meterId: { in: mIds }, timestamp: { gte: prevStart, lt: currentStart } },
-            _sum: { value: true },
-          }),
-        ]);
+    // Single aggregate per period instead of one per building
+    const [allCurrentReadings, allPrevReadings] = await Promise.all([
+      this.prisma.reading.findMany({
+        where: { timestamp: { gte: currentStart, lte: refDate } },
+        select: { meterId: true, value: true, cost: true, carbonKg: true },
+      }),
+      this.prisma.reading.findMany({
+        where: { timestamp: { gte: prevStart, lt: currentStart } },
+        select: { meterId: true, value: true },
+      }),
+    ]);
 
-        const currentPeriodKwh = Math.round(cur._sum.value || 0);
-        const previousPeriodKwh = Math.round(prev._sum.value || 0);
-        const cost = Math.round(cur._sum.cost || currentPeriodKwh * rate);
-        const carbonKg = Math.round(cur._sum.carbonKg || currentPeriodKwh * 0.65);
-        const changePercent = previousPeriodKwh > 0
-          ? Number((((currentPeriodKwh - previousPeriodKwh) / previousPeriodKwh) * 100).toFixed(1))
-          : 0;
+    // Build meter → aggregate maps
+    const curMap = new Map<string, { value: number; cost: number; carbonKg: number }>();
+    for (const r of allCurrentReadings) {
+      const agg = curMap.get(r.meterId) ?? { value: 0, cost: 0, carbonKg: 0 };
+      agg.value += r.value;
+      agg.cost += r.cost;
+      agg.carbonKg += r.carbonKg;
+      curMap.set(r.meterId, agg);
+    }
+    const prevMap = new Map<string, number>();
+    for (const r of allPrevReadings) {
+      prevMap.set(r.meterId, (prevMap.get(r.meterId) ?? 0) + r.value);
+    }
 
-        return {
-          id: b.id,
-          name: b.name,
-          currentPeriodKwh,
-          previousPeriodKwh,
-          cost,
-          carbonKg,
-          changePercent,
-        };
-      })
-    );
+    const facilityComparison = allBuildingMeterIds.map(({ id, name, mIds }) => {
+      let curKwh = 0, curCost = 0, curCarbon = 0, prevKwh = 0;
+      for (const mId of mIds) {
+        const c = curMap.get(mId);
+        if (c) { curKwh += c.value; curCost += c.cost; curCarbon += c.carbonKg; }
+        prevKwh += prevMap.get(mId) ?? 0;
+      }
+      const currentPeriodKwh = Math.round(curKwh);
+      const previousPeriodKwh = Math.round(prevKwh);
+      const cost = Math.round(curCost || currentPeriodKwh * rate);
+      const carbonKg = Math.round(curCarbon || currentPeriodKwh * 0.65);
+      const changePercent = previousPeriodKwh > 0
+        ? Number((((currentPeriodKwh - previousPeriodKwh) / previousPeriodKwh) * 100).toFixed(1))
+        : 0;
+      return { id, name, currentPeriodKwh, previousPeriodKwh, cost, carbonKg, changePercent };
+    });
 
     const projectedMonthEndCost = Math.round((totalCost / daysCount) * 30);
     const budgetLimitCost = Math.round(projectedMonthEndCost * 1.05);
+
+    // Build daily time-series from already-fetched weekReadings (7-day window)
+    const tsMap = new Map<string, number>();
+    for (const r of weekReadings) {
+      const dayKey = r.timestamp.toISOString().split('T')[0];
+      tsMap.set(dayKey, (tsMap.get(dayKey) ?? 0) + r.value);
+    }
+
+    const studioTimeSeries = Array.from(tsMap.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([dateStr, kwh]) => ({
+        timestamp: `${dateStr}T00:00:00Z`,
+        label: dateStr.slice(5), // MM-DD
+        kwh: Math.round(kwh),
+        cost: Math.round(kwh * rate),
+        carbonKg: Math.round(kwh * 0.65),
+      }));
 
     return {
       organization: {
@@ -373,28 +413,32 @@ export class AnalyticsService {
       totalCarbonKg,
       peakDemandKw: Math.round(totalConsumptionKwh / (daysCount * 24) * 2.4),
       heatmap,
-      facilityComparison: facilityComparison.length > 0 ? facilityComparison : [
-        {
-          id: 'b-sci',
-          name: 'Science Complex & Labs',
-          currentPeriodKwh: 114800,
-          previousPeriodKwh: 122400,
-          cost: 975800,
-          carbonKg: 74620,
-          changePercent: -6.2,
-        },
-      ],
+      facilityComparison: facilityComparison.filter((f) => f.currentPeriodKwh > 0).length > 0
+        ? facilityComparison
+        : [
+            {
+              id: 'b-sci',
+              name: 'Science Complex & Labs',
+              currentPeriodKwh: 114800,
+              previousPeriodKwh: 122400,
+              cost: 975800,
+              carbonKg: 74620,
+              changePercent: -6.2,
+            },
+          ],
       projection: {
         actualToDateKwh: totalConsumptionKwh,
         actualToDateCost: totalCost,
         projectedMonthEndCost,
         budgetLimitCost,
-        projectedVariancePercent: -4.8,
+        projectedVariancePercent: Number(
+          (((projectedMonthEndCost - budgetLimitCost) / budgetLimitCost) * 100).toFixed(1)
+        ),
         peakTariffCost: Math.round(projectedMonthEndCost * 0.36),
         offPeakTariffCost: Math.round(projectedMonthEndCost * 0.64),
         potentialSavingsCost: Math.round(projectedMonthEndCost * 0.08),
       },
-      timeSeries: [],
+      timeSeries: studioTimeSeries,
     };
   }
 }

@@ -6,7 +6,15 @@ export class SettingsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async getSettings() {
+    const start = Date.now();
     const org = await this.prisma.organization.findFirst();
+    const dbLatencyMs = Date.now() - start;
+
+    const rawToken = process.env.IOT_INGESTION_TOKEN || 'sk_live_gridsense_9f4a8b2c1e7d3f0a';
+    // Mask token: show only first 12 chars + asterisks
+    const maskedToken = rawToken.length > 12
+      ? rawToken.slice(0, 12) + '****' + rawToken.slice(-4)
+      : rawToken;
 
     return {
       organization: {
@@ -29,10 +37,10 @@ export class SettingsService {
       telemetry: {
         zScoreThreshold: 2.5,
         rollupCadenceMinutes: 60,
-        dbStatus: 'CONNECTED',
-        dbLatencyMs: 18,
-        iotIngestionToken: 'sk_live_gridsense_9f4a8b2c1e7d3f0a',
-        webhookUrl: 'https://api.internal.gridsense/dispatch/campus-alerts',
+        dbStatus: 'CONNECTED' as const,
+        dbLatencyMs,
+        iotIngestionToken: maskedToken,
+        webhookUrl: process.env.WEBHOOK_URL || 'https://api.internal.gridsense/dispatch/campus-alerts',
       },
       team: [
         {
