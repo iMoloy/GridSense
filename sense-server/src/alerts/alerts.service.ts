@@ -188,13 +188,22 @@ export class AlertsService {
     const org = await this.prisma.organization.findFirst();
     const orgId = org ? org.id : null;
 
+    // Normalize client scope ('DEPT' -> Prisma 'DEPARTMENT')
+    const rawScope = String(dto.scope || 'ORG');
+    const normalizedScope = (rawScope === 'DEPT' ? 'DEPARTMENT' : rawScope) as
+      | 'ORG'
+      | 'BUILDING'
+      | 'FLOOR'
+      | 'DEPARTMENT'
+      | 'METER';
+
     // If we have a valid org in DB, persist the rule
     if (orgId) {
       const rule = await this.prisma.alertRule.create({
         data: {
           orgId,
           name: String(dto.name || 'New Rule'),
-          scope: (dto.scope as 'ORG' | 'BUILDING' | 'FLOOR' | 'DEPARTMENT' | 'METER') || 'ORG',
+          scope: normalizedScope,
           scopeId: dto.scopeId ? String(dto.scopeId) : null,
           metric: String(dto.metric || 'HOURLY_CONSUMPTION'),
           condition: String(dto.condition || 'GREATER_THAN'),
@@ -223,7 +232,7 @@ export class AlertsService {
       id: `rule-${Date.now()}`,
       orgId: 'org-dhaka-campus',
       name: String(dto.name || 'New Rule'),
-      scope: String(dto.scope || 'CAMPUS'),
+      scope: String(dto.scope || 'ORG'),
       scopeTargetName: String(dto.scopeTargetName || 'Campus Wide'),
       metric: String(dto.metric || 'HOURLY_CONSUMPTION'),
       condition: String(dto.condition || 'GREATER_THAN'),
