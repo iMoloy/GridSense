@@ -16,7 +16,14 @@ export function formatKwh(value: number): string {
 }
 
 export function formatCurrency(amount: number, currency: string = 'BDT'): string {
-  const symbol = currency === 'BDT' ? '৳' : '$';
+  const symbols: Record<string, string> = {
+    BDT: '৳',
+    USD: '$',
+    EUR: '€',
+    GBP: '£',
+    INR: '₹',
+  };
+  const symbol = symbols[currency] ?? currency + ' ';
   return `${symbol}${amount.toLocaleString('en-US', {
     maximumFractionDigits: 0,
   })}`;
@@ -43,5 +50,8 @@ export function formatRelativeTime(dateString: string): string {
   const diffInHours = Math.floor(diffInMinutes / 60);
   if (diffInHours < 24) return `${diffInHours}h ago`;
   const diffInDays = Math.floor(diffInHours / 24);
-  return `${diffInDays}d ago`;
+  if (diffInDays < 30) return `${diffInDays}d ago`;
+  const diffInMonths = Math.floor(diffInDays / 30);
+  if (diffInMonths < 12) return `${diffInMonths}mo ago`;
+  return `${Math.floor(diffInMonths / 12)}y ago`;
 }
