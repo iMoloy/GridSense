@@ -25,7 +25,7 @@ export function HierarchySearchBar({
     { label: 'HVAC Chiller / Air', value: 'HVAC' },
     { label: 'Lighting Banks', value: 'LIGHTING' },
     { label: 'Equipment & Servers', value: 'EQUIPMENT' },
-    { label: 'Solar Generation', value: 'SOLAR_SOLAR' },
+    { label: 'Solar Generation', value: 'SOLAR' },
     { label: 'EV Charging', value: 'EV_CHARGER' },
   ];
 

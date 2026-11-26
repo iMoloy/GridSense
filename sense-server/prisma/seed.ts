@@ -113,7 +113,7 @@ async function main() {
               name: 'Solar Renewable Generation',
               type: 'RENEWABLE',
               meters: [
-                { serial: 'MTR-PV-01', name: '120kW Rooftop Photovoltaic Bank', type: MeterType.SOLAR_SOLAR },
+                { serial: 'MTR-PV-01', name: '120kW Rooftop Photovoltaic Bank', type: MeterType.SOLAR },
               ],
             },
           ],
@@ -300,7 +300,7 @@ async function main() {
         } else if (meter.type === MeterType.LIGHTING) {
           // Lighting high in evening
           value = hour >= 18 && hour <= 23 ? 38.0 : hour >= 8 && hour <= 17 ? 20.0 : 4.0;
-        } else if (meter.type === MeterType.SOLAR_SOLAR) {
+        } else if (meter.type === MeterType.SOLAR) {
           // Solar generates only between 7:00 and 17:00
           value = hour >= 7 && hour <= 16 ? 45.0 + Math.sin(((hour - 7) / 10) * Math.PI) * 40 : 0.0;
         } else if (meter.type === MeterType.EV_CHARGER) {

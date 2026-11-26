@@ -219,7 +219,7 @@ function getInitialBuildingDetail(id: string): BuildingDetail {
                 departmentId: 'dept-301',
                 serialNumber: 'MTR-PV-01',
                 name: '120kW Rooftop Photovoltaic Bank',
-                meterType: 'SOLAR_SOLAR',
+                meterType: 'SOLAR',
                 unit: 'kWh',
                 isActive: true,
                 installedAt: '2026-03-10',

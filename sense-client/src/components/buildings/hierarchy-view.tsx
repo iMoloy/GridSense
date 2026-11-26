@@ -37,7 +37,7 @@ export function HierarchyView({ floors }: HierarchyViewProps) {
         return 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20';
       case 'LIGHTING':
         return 'bg-amber-500/10 text-amber-400 border-amber-500/20';
-      case 'SOLAR_SOLAR':
+      case 'SOLAR':
         return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
       case 'EV_CHARGER':
         return 'bg-violet-500/10 text-violet-400 border-violet-500/20';

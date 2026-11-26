@@ -278,7 +278,7 @@ function getInitialHierarchy(): OrganizationHierarchy {
                     departmentId: 'dept-lib-201',
                     serialNumber: 'MTR-LIB-PV',
                     name: '60kW Rooftop Solar Inverter',
-                    meterType: 'SOLAR_SOLAR',
+                    meterType: 'SOLAR',
                     unit: 'kWh',
                     isActive: true,
                     installedAt: '2026-02-15',
