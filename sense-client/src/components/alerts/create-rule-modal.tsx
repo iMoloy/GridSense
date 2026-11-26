@@ -128,7 +128,7 @@ export function CreateRuleModal({
                 onChange={(e) => setScope(e.target.value as AlertScope)}
                 className="mt-1.5 h-11 w-full rounded-xl border border-slate-800 bg-slate-950 px-3 text-xs text-slate-100 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
               >
-                <option value="CAMPUS">All Campus (Org-Wide)</option>
+                <option value="ORG">All Campus (Org-Wide)</option>
                 <option value="BUILDING">Single Building</option>
                 <option value="FLOOR">Single Floor</option>
                 <option value="DEPT">Department Level</option>

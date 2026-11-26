@@ -21,7 +21,7 @@ enum MeterType {
   HVAC
   LIGHTING
   EQUIPMENT
-  SOLAR_SOLAR
+  SOLAR
   EV_CHARGER
 }
 

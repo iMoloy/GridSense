@@ -10,7 +10,7 @@ export type MeterType =
   | 'HVAC'
   | 'LIGHTING'
   | 'EQUIPMENT'
-  | 'SOLAR_SOLAR'
+  | 'SOLAR'
   | 'EV_CHARGER';
 
 export type AlertSeverity = 'INFO' | 'WARNING' | 'CRITICAL';
